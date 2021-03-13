@@ -1,9 +1,7 @@
 FROM tensorflow/tensorflow:2.4.1-gpu
 
-COPY . /app
-
 WORKDIR /app
 
-RUN pip install runipy
+COPY requirements.txt requirements.txt
 
-ENTRYPOINT ["runipy"]
+RUN pip install -r requirements.txt
