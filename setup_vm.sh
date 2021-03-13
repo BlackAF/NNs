@@ -15,10 +15,6 @@ sudo systemctl restart docker
 # Install nvdia driver
 sudo apt-get install --no-install-recommends nvidia-driver-450 -y
 
-# Clone Repo
-gcloud source repos clone github_jephthia_nns --project=gans-301101
-cd github_jephthia_nns
-
 # Build the image
 sudo docker build -t dl .
 
