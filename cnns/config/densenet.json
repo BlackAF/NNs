@@ -7,5 +7,6 @@
     "BLOCK_SIZES": [6,12,24,16],
     "INIT_FILTERS": 24,
     "GROWTH_RATE": 12,
-    "INIT_LR": 1e-02
+    "INIT_LR": 1e-02,
+    "LOG_TO_CONSOLE": true
 }
