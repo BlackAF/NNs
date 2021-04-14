@@ -117,34 +117,28 @@ class IMG2SVG(Model):
             # tf.print('aft points\n', points, summarize=-1)
             #--- working points method ---#
 
-            points = points[0]
-            pos = points[:, 0] * width + points[:, 1]
-            pos = tf.argsort(pos, axis=0)
+                        
+            pos = points[:, :, 0] * width + points[:, :, 1]
+            pos = tf.argsort(pos, axis=1)
 
-            points = tf.gather(points, pos)
+            points = tf.gather(points, pos, batch_dims=1)
 
-            d = points[1:] - points[:-1]
+            d = points[:, 1:] - points[:, :-1]
             d = tf.math.abs(d)
+            d = tf.math.reduce_sum(d, axis=2)
+            d = tf.pad(d, paddings=[[0, 0], [1, 0]], constant_values=1.)
 
-            d = tf.math.reduce_sum(d, axis=1)
+            w = tf.where(d)
+            w = tf.RaggedTensor.from_value_rowids(w[:, 1], w[:, 0])
 
-            w = tf.where(d) + 1
-            w = tf.pad(w, [[1, 0], [0, 0]])
+            points = tf.RaggedTensor.from_tensor(points)
+            points = tf.gather(points, w, axis=1, batch_dims=1)
+            points = points.to_tensor(-1)
 
-            points = tf.gather_nd(points, w)
+            pad = 5 - tf.shape(points)[1]
+            points = tf.pad(points, paddings=[[0, 0], [0, pad], [0, 0]], constant_values=-1)
 
-            pad = 5 - tf.shape(points)[0]
-            points = tf.pad(points, paddings=[[0, pad], [0, 0]])
-            # tf.print('x', x, summarize=-1)
-
-            # c = tf.sparse.SparseTensor(tf.cast(points[0], tf.int64), tf.range(5), dense_shape=[height,width])
-            # c = tf.sparse.reorder(c)
-            # # tf.print(c, summarize=-1)
-
-            # points = tf.gather_nd(points[0], tf.expand_dims(c.values, axis=-1))
-            # points = tf.expand_dims(points, axis=0)
             tf.print('aft points\n', points, summarize=-1)
-
 
             # a = tf.gather_nd(a, tf.expand_dims(c.values, axis=-1))
 
@@ -598,55 +592,95 @@ print(a)
 # ---- UNIQUE 2D ----
 
 a = tf.constant([
-    [2., 4.],
-    [1., 0.],
-    [4., 2.],
-    [9., 6.],
-    [2., 1.],
-    [1., 0.],
-    [9., 6.],
-    [2., 14.],
-    [3., 1.],
-    [0., 5.],
+    [
+        [2., 4.],
+        [1., 0.],
+        [4., 2.],
+        [9., 6.],
+        [2., 1.],
+        [1., 0.],
+        [9., 6.],
+        [2., 14.],
+        [3., 1.],
+        [0., 5.],
+    ],
+    [
+        [2., 3.],
+        [2., 3.],
+        [2., 3.],
+        [2., 3.],
+        [2., 3.],
+        [2., 3.],
+        [2., 3.],
+        [2., 3.],
+        [2., 3.],
+        [2., 3.],
+    ],
+    [
+        [2., 4.],
+        [9., 7.],
+        [4., 2.],
+        [9., 7.],
+        [2., 5.],
+        [6., 7.],
+        [8., 6.],
+        [2., 12.],
+        [0., 3.],
+        [5., 3.],
+    ]
 ])
 
+
+
 width = 15
-pos = a[:, 0] * width + a[:, 1]
+pos = a[:, :, 0] * width + a[:, :, 1]
 
 print()
 print(pos)
 
-pos = tf.argsort(pos, axis=0)
+pos = tf.argsort(pos, axis=1)
 
 print()
 print(pos)
 
-a = tf.gather(a, pos)
+a = tf.gather(a, pos, batch_dims=1)
 
 print()
 print(a)
 
-d = a[1:] - a[:-1]
+d = a[:, 1:] - a[:, :-1]
 d = tf.math.abs(d)
 
 print()
 print(d)
 
-d = tf.math.reduce_sum(d, axis=1)
+d = tf.math.reduce_sum(d, axis=2)
+d = tf.pad(d, paddings=[[0, 0], [1, 0]], constant_values=1.)
 
 print()
 print(d)
 
-w = tf.where(d) + 1
-w = tf.pad(w, [[1, 0], [0, 0]])
+w = tf.where(d)
 
 print()
 print(w)
 
-a = tf.gather_nd(a, w)
+w = tf.RaggedTensor.from_value_rowids(w[:, 1], w[:, 0])
 
 print()
+print(w)
+
+
 print(a)
+a = tf.RaggedTensor.from_tensor(a)
+a = tf.gather(a, w, axis=1, batch_dims=1)
+
+print()
+print(a.to_tensor(-99))
+
+
+
+
 
 # c = tf.sparse.SparseTensor(tf.cast(a, tf.int64), tf.range(10), dense_shape=[1,1])
 # c = tf.sparse.reorder(c)
