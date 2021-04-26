@@ -428,9 +428,6 @@ assert len(starts) == len(ends)
 
 indexes = list(zip(starts.keys(), ends.keys()))
 
-print([i for i in indexes if i[0] == (72, 32)])
-print([i for i in indexes if i[1] == (72, 32)])
-
 
 def connect_diagonal(to_start, connected_point):
     curr_start, curr_end = indexes[0][0], indexes[0][1]
@@ -580,8 +577,6 @@ while len(indexes):
     found_start_extremity = False
     found_end_extremity = False
 
-    print('i', indexes[0])
-
     while not found_start_extremity:
         start = indexes[0][0]
 
@@ -638,7 +633,6 @@ while len(indexes):
         found_end_extremity = True
 
     # There are no more paths that can connect to this one so remove it and go to the next
-    print(len(indexes))
     indexes = indexes[1:]
 
 
@@ -648,15 +642,13 @@ assert set([tuple(path) for path in starts.values()]) == set([tuple(path) for pa
 
 paths = [tuple(path) for path in starts.values()]
 
-print(paths)
 
-for i, path in enumerate(paths):
-    rows, cols = np.transpose(path)
-    plt.xlim(0, 100)
-    plt.ylim(100, 0)
-    print('path:', i)
-    plt.plot(cols, rows, '-')
-plt.show()
+# for i, path in enumerate(paths):
+#     rows, cols = np.transpose(path)
+#     plt.xlim(0, 100)
+#     plt.ylim(100, 0)
+#     plt.plot(cols, rows, '-')
+# plt.show()
 
 
 
@@ -751,14 +743,69 @@ plt.show()
 
 
 
+def to_svg(paths, width, height):
+    stroke_width = 1
+    offset = stroke_width / 2
+
+    paths_str = ''
+
+    for path in paths:
+        print()
+            
+        path = np.array(path, dtype=np.float32)
+        
+        # Reverse to go from y,x to x,y
+        path = path[:, ::-1]
+
+        # Handle single points
+        if len(path) == 1:
+            # Center x
+            print('p',path)
+            path[0, 0] += offset
+            # Add an end anchor
+            path = np.tile(path, [2, 1])
+            # Offset y
+            path[1, 1] += 1
+            print('p',path)
+        else:
+            # Center the anchor
+            path += offset
+
+            # Place the start anchor of the path
+            start_offset = path[0] - path[1]
+            # Clip since we only wanna know if x/y is the same, smaller or bigger
+            start_offset = np.clip(start_offset, -1, 1)
+            start_offset *= offset
+            path[0] += start_offset
+            print('o', start_offset)
+
+            # PLace the end anchor of the path
+            end_offset = path[-1] - path[-2]
+            end_offset = np.clip(end_offset, -1, 1)
+            end_offset *= offset
+            path[-1] += end_offset
+
+            print(path)
+
+            print('e', end_offset)
+
+        anchors = ' L'.join([','.join(map(str, i)) for i in path[1:]])
+
+        curr_path = f'\t<path stroke="#ff0000" fill="none" d="M{path[0, 0]},{path[0, 1]} L{anchors}" />\n'
+        paths_str = ''.join([paths_str, curr_path])
+
+    svg_begin = f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}">\n'
+    svg_end = '</svg>\n'
+    svg = ''.join([svg_begin, paths_str, svg_end])
+
+    return svg
+
+svg = to_svg(paths, 100, 100)
+print('svg\n', svg)
 
 
-
-
-
-
-
-
+with open('resultskate.svg', 'w') as f:
+    f.write(svg)
 
 
 # a = [13, 83]
