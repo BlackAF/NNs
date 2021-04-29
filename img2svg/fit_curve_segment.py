@@ -2,7 +2,7 @@
 import matplotlib.pyplot as plt
 import cairosvg
 import numpy as np
-
+import math
 
 #%%
 def build_q(start, end, b):
@@ -127,18 +127,40 @@ opath = path = np.array([(19, 81), (18, 81), (17, 80), (14, 80), (13, 79),
     (67, 60), (68, 60), (69, 59), (75, 59), (75, 60), (76, 60), (76, 62), (75, 63)])
 
 # Coffeficients for quadratic https://pomax.github.io/bezierinfo/#curvefitting
-M_Q = np.array([
+M_3 = np.array([
     [ 1, 0, 0],
     [-2, 2, 0],
     [1, -2, 1]
 ])
 # Coefficients for cubic https://pomax.github.io/bezierinfo/#curvefitting
-M_C = np.array([
+M_4 = np.array([
     [  1, 0, 0, 0],
     [ -3, 3, 0, 0],
     [ 3, -6, 3, 0],
     [-1, 3, -3, 1]
 ])
+
+M_5 = np.array([
+    [ 1,   0,   0,  0, 0],
+    [-4,   4,   0,  0, 0],
+    [ 6, -12,   6,  0, 0],
+    [-4,  12, -12,  4, 0],
+    [ 1,  -4,   6, -4, 1]
+])
+
+
+def comb(n, k):
+    return math.factorial(n) //  (math.factorial(k) * math.factorial(n - k))
+
+def M(n):
+    n -= 1
+    coef = [[comb(n, i) * comb(i, k) * (-1)**(i - k) for k in range(i + 1)] for i in range(n + 1)]
+    # padding with zeros to create a square matrix
+    return np.array([row + [0] * (n + 1 - len(row)) for row in coef])
+
+
+
+
 
 
 def dist(p1, p2):
@@ -147,76 +169,116 @@ def dist(p1, p2):
     return np.sqrt(dx**2 + dy**2)
 
 
-path = path[:-24]
-
-t = [0.]
-
-for i in range(1, len(path)):
-    t.append(t[-1] + dist(path[i], path[i-1]))
-
-# Scale between [0, 1]
-t /= t[-1]
-
-t = np.expand_dims(t, axis=-1)
-
-# 3=quadratic 4=cubic
-order = 4
-powers = range(order)
-
-t = t ** powers
-
-print(t)
-
-C = np.linalg.inv(M_C) @ np.linalg.inv((np.transpose(t)@t)) @ (np.transpose(t)@path)
 
 
-print(C)
-print(np.transpose(C))
+def fit_curve(path):
+    t = [0.]
+
+    for i in range(1, len(path)):
+        t.append(t[-1] + dist(path[i], path[i-1]))
+
+    # Scale between [0, 1]
+    t /= t[-1]
+
+    t = np.expand_dims(t, axis=-1)
+
+    # 3=quadratic 4=cubic
+    order = 4
+    powers = range(order)
+
+    t = t ** powers
+
+    # print(t)
+
+    C = np.linalg.inv(M(order)) @ np.linalg.inv((np.transpose(t)@t)) @ (np.transpose(t)@path)
 
 
-plt.plot(np.transpose(C)[1], np.transpose(C)[0], 'ro')
-plt.show()
+    # print(C)
+    # print(np.transpose(C))
 
 
 
-def bezier_c(p1, p2, p3, p4, smoothness, t=None):
-    p1 = np.expand_dims(p1, axis=-1)
-    p2 = np.expand_dims(p2, axis=-1)
-    p3 = np.expand_dims(p3, axis=-1)
-    p4 = np.expand_dims(p4, axis=-1)
+    def bezier(control_points, order, smoothness=50, t=None):
+        if t is None:
+            t = np.linspace([0.], [1.], num=smoothness)
+            pws = range(order)
+            t = t ** pws
 
-    t = np.linspace(0., 1., num=smoothness) if t is None else t
-    points = ((1 - t)**3) * p1 + 3 * ((1 - t)**2) * t * p2 + 3 * (1 - t) * (t**2) * p3 + (t**3) * p4
+        points = t @ M(order) @ control_points
+        # points = ((1 - t)**3) * p1 + 3 * ((1 - t)**2) * t * p2 + 3 * (1 - t) * (t**2) * p3 + (t**3) * p4
 
-    return points
-
-curve = bezier_c(*C, smoothness=50, t=t[:, 1])
+        return points
 
 
+    # cps = np.array([[10,20], [4,85], [16,67], [46,7], [50,63]])
+    # ps = bezier(cps, order=5, smoothness=100)
 
-plt.xlim(0, 100)
-plt.ylim(100, 0)
-plt.plot(np.transpose(opath)[1], np.transpose(opath)[0])
-plt.plot(opath[0, 1], opath[0, 0], 'ro')
-plt.plot(opath[-1, 1], opath[-1, 0], 'go')
-
-plt.plot(curve[1], curve[0])
-plt.show()
+    # print(ps)
 
 
+    curve = bezier(C, order=order, t=t)
+    # curve = np.transpose(curve)
 
-curve = np.transpose(curve)
-print(len(path))
-print(len(curve))
-
-print(path[-1])
-print(curve[-1])
-
-def mse(a, b):
-    assert len(a) == len(b)
-    return ((a - b)**2).mean()
-
-loss = mse(path, curve)
+    # plt.xlim(0, 100)
+    # plt.ylim(100, 0)
+    # plt.plot(np.transpose(opath)[1], np.transpose(opath)[0])
+    # plt.plot(path[0, 1], path[0, 0], 'ro')
+    # plt.plot(opath[-1, 1], opath[-1, 0], 'go')
+    # plt.plot(curve[1], curve[0])
+    # plt.show()
 
 
-print('-loss-\n', loss)
+
+
+    # curve = np.transpose(curve)
+    # print(len(path))
+    # print(len(curve))
+
+    # print(path[-1])
+    # print(curve[-1])
+
+    def mse(a, b):
+        assert len(a) == len(b)
+        return ((a - b)**2).mean()
+
+    loss = mse(path, curve)
+    print('-loss-\n', loss)
+
+    return curve, loss, C
+
+max_error = 0.1
+
+start = 0
+end = len(path) - 1
+
+while len(path) - start > 4:
+    if end - start <= 4 - 1:
+        print('start: ', end, 'end: ', end)
+        start = end
+        end = len(path) - 1
+        continue
+
+    curve, loss, control_points = fit_curve(path[start:end+1])
+
+    if loss < max_error:
+        print('start: ', start, 'end: ', end)
+        curve = np.transpose(curve)
+
+        plt.xlim(0, 100)
+        plt.ylim(100, 0)
+        plt.plot(np.transpose(opath)[1], np.transpose(opath)[0])
+        plt.plot(opath[start, 1], opath[start, 0], 'ro', markersize=2)
+        plt.plot(opath[-1, 1], opath[-1, 0], 'go')
+        plt.plot(curve[1], curve[0])
+        plt.show()
+
+        print('control_points', control_points)
+
+        start = end
+        end = len(path) - 1
+
+        continue
+
+    end -= 1
+
+
