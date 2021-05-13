@@ -98,7 +98,7 @@ end_time = time.time() - start_time
 print('Done! - Took: ', end_time, 's')
 
 #%%
-img = Image.open('opencv/skate_canny.jpg')
+img = Image.open('opencv/skate_canny_2000.jpg')
 img = np.asarray(img)
 img = np.where(img < 126, 0, 255)
 
@@ -115,9 +115,10 @@ e = np.expand_dims(e, axis=-1)
 e = np.tile(e, [1, 1, 3])
 
 cols = set([col for col in points[:, 1]])
-print(cols)
+# print(cols)
 
 
+plt.figure(figsize=(10,10))
 for col in cols:
     # e[:, col] = [255, 0, 0]
 
@@ -155,11 +156,10 @@ for col in cols:
 
     e[tuple(end_ps)] = [0, 255, 0]
 
-    plt.figure(figsize=(10,10))
     plt.imshow(e)
 
 
-plt.show()
+    plt.show()
 
 end_time = time.time() - start_time
 print('Done! - Took: ', end_time, 's')
@@ -167,8 +167,9 @@ print('Done! - Took: ', end_time, 's')
 
 
 #%%
-img = Image.open('opencv/skate_canny.jpg')
+img = Image.open('opencv/skate_canny_2000.jpg')
 img = np.asarray(img)
+# img = img[:, :, 0]
 img = np.where(img < 126, 0, 1)
 
 
@@ -189,7 +190,7 @@ ehor = np.equal(hor, -1)[1:-1, 1:]
 
 
 sver_sorted = np.transpose(np.nonzero(sver))
-height = 100
+height = 2000
 # sort by column instead of by row
 sver_sorted = sver_sorted[:, ::-1]
 pos = sver_sorted[:, 0] * height + sver_sorted[:, 1]
@@ -200,7 +201,7 @@ sver_sorted = sver_sorted[:, ::-1]
 
 
 ever_sorted = np.transpose(np.nonzero(ever))
-height = 100
+height = 2000
 # sort by column instead of by row
 ever_sorted = ever_sorted[:, ::-1]
 pos = ever_sorted[:, 0] * height + ever_sorted[:, 1]
@@ -260,7 +261,7 @@ cps_hor = cps_hor[hor_not_single]
 
 # only keep necessary single points
 singles = np.concatenate((ver_single, hor_single), axis=0)
-width = 100
+width = 2000
 pos = singles[:, 0] * width + singles[:, 1]
 singles = singles[np.argsort(pos, axis=0)]
 idx = singles[1:] - singles[:-1]
@@ -638,17 +639,22 @@ while len(indexes):
 
 assert len(starts) == len(ends)
 assert set([tuple(path) for path in starts.values()]) == set([tuple(path) for path in ends.values()])
-
-
 paths = [tuple(path) for path in starts.values()]
 
+# with open('paths.npy', 'wb') as f:
+    # np.save(f, np.array(paths, dtype=object))
 
-# for i, path in enumerate(paths):
-#     rows, cols = np.transpose(path)
-#     plt.xlim(0, 100)
-#     plt.ylim(100, 0)
-#     plt.plot(cols, rows, '-')
-# plt.show()
+# paths = paths[63:64]
+
+plt.figure(figsize=(10,10))
+for path in paths:
+    rows, cols = np.transpose(path)
+    plt.xlim(0, 2000)
+    plt.ylim(2000, 0)
+    plt.plot(cols, rows)
+plt.show()
+
+
 
 
 
@@ -738,11 +744,6 @@ paths = [tuple(path) for path in starts.values()]
 
 
 
-
-
-
-
-
 def to_svg(paths, width, height):
     stroke_width = 1
     offset = stroke_width / 2
@@ -750,7 +751,7 @@ def to_svg(paths, width, height):
     paths_str = ''
 
     for path in paths:
-        print()
+        # print()
             
         path = np.array(path, dtype=np.float32)
         
@@ -760,13 +761,13 @@ def to_svg(paths, width, height):
         # Handle single points
         if len(path) == 1:
             # Center x
-            print('p',path)
+            # print('p',path)
             path[0, 0] += offset
             # Add an end anchor
             path = np.tile(path, [2, 1])
             # Offset y
             path[1, 1] += 1
-            print('p',path)
+            # print('p',path)
         else:
             # Center the anchor
             path += offset
@@ -777,7 +778,7 @@ def to_svg(paths, width, height):
             start_offset = np.clip(start_offset, -1, 1)
             start_offset *= offset
             path[0] += start_offset
-            print('o', start_offset)
+            # print('o', start_offset)
 
             # PLace the end anchor of the path
             end_offset = path[-1] - path[-2]
@@ -785,13 +786,13 @@ def to_svg(paths, width, height):
             end_offset *= offset
             path[-1] += end_offset
 
-            print(path)
+            # print(path)
 
-            print('e', end_offset)
+            # print('e', end_offset)
 
         anchors = ' L'.join([','.join(map(str, i)) for i in path[1:]])
 
-        curr_path = f'\t<path stroke="#ff0000" fill="none" d="M{path[0, 0]},{path[0, 1]} L{anchors}" />\n'
+        curr_path = f'\t<path stroke="#ffffff" fill="none" d="M{path[0, 0]},{path[0, 1]} L{anchors}" />\n'
         paths_str = ''.join([paths_str, curr_path])
 
     svg_begin = f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}">\n'
@@ -800,12 +801,13 @@ def to_svg(paths, width, height):
 
     return svg
 
-svg = to_svg(paths, 100, 100)
-print('svg\n', svg)
+
+# svg = to_svg(paths, 2000, 2000)
+# print('svg\n', svg)
 
 
-with open('resultskate.svg', 'w') as f:
-    f.write(svg)
+# with open('resultskate_2000.svg', 'w') as f:
+    # f.write(svg)
 
 
 # a = [13, 83]
@@ -848,6 +850,8 @@ with open('resultskate.svg', 'w') as f:
 # plt.imshow(gen)
 # plt.show()
 
+
+
 end_time = time.time() - start_time
 print('Done! - Took: ', end_time, 's')
 
@@ -859,9 +863,11 @@ import cairosvg
 import tensorflow as tf
 
 img = cairosvg.svg2png(svg.encode('utf-8'))
-img = tf.io.decode_jpeg(img, channels=3)
+img = tf.io.decode_jpeg(img, channels=1)
+
 
 plt.figure(figsize=(10,10))
 plt.imshow(img)
 plt.show()
 
+print(np.transpose(np.nonzero(img)[:2]))

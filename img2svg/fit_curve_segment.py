@@ -118,19 +118,36 @@ for b in path[1:-1]:
 
 
 #%%
-opath = path = np.array([(19, 81), (18, 81), (17, 80), (14, 80), (13, 79),
-    (11, 79), (11, 78), (9, 78), (9, 77), (7, 77), (7, 76), (5, 76), (5, 75),
-    (4, 75), (4, 74), (3, 74), (3, 73), (2, 72), (2, 71), (3, 70), (3, 68),
-    (4, 68), (4, 67), (6, 67), (6, 66), (7, 66), (7, 65), (9, 65), (9, 64),
-    (11, 64), (11, 60), (12, 60), (13, 59), (20, 59), (20, 60), (21, 60), (22, 61),
-    (23, 61), (24, 60), (33, 60), (34, 59), (50, 59), (51, 60), (59, 60), (60, 61), (67, 61),
-    (67, 60), (68, 60), (69, 59), (75, 59), (75, 60), (76, 60), (76, 62), (75, 63)])
+# opath = path = np.array([(19, 81), (18, 81), (17, 80), (14, 80), (13, 79),
+#     (11, 79), (11, 78), (9, 78), (9, 77), (7, 77), (7, 76), (5, 76), (5, 75),
+#     (4, 75), (4, 74), (3, 74), (3, 73), (2, 72), (2, 71), (3, 70), (3, 68),
+#     (4, 68), (4, 67), (6, 67), (6, 66), (7, 66), (7, 65), (9, 65), (9, 64),
+#     (11, 64), (11, 60), (12, 60), (13, 59), (20, 59), (20, 60), (21, 60), (22, 61),
+#     (23, 61), (24, 60), (33, 60), (34, 59), (50, 59), (51, 60), (59, 60), (60, 61), (67, 61),
+#     (67, 60), (68, 60), (69, 59), (75, 59), (75, 60), (76, 60), (76, 62), (75, 63)])
 
-# path = path[:30]
+def path_dist(path):
+    d = 0
+    for i in range(1, len(path)):
+        d += dist(path[i], path[i-1])
+
+    return d
+# for p in paths:
+    # print(path_dist(p))
+
+with open('opencv/contours.npy', 'rb') as f:
+    paths = np.load(f, allow_pickle=True)
+    paths = [np.array(path, dtype=np.float32) for path in paths if len(path) > 1000]
+    # paths = [np.array(path) for path in paths]
+  
+# paths = paths[:1]
+# paths = paths[63:64]
+
 # plt.figure(figsize=(10,10))
-# plt.xlim(0, 100)
-# plt.ylim(100, 0)
-# plt.plot(np.transpose(path)[1], np.transpose(path)[0])
+# for path in paths:
+#     plt.xlim(0, 2000)
+#     plt.ylim(2000, 0)
+#     plt.plot(np.transpose(path)[1], np.transpose(path)[0])
 # plt.show()
 
 # opath = path = np.array([
@@ -251,6 +268,18 @@ opath = path = np.array([(19, 81), (18, 81), (17, 80), (14, 80), (13, 79),
 #  [75, 63]
 #  ])
 
+
+ # for path in paths:
+# print(len(path))
+# path = path[39:57]
+# plt.figure(figsize=(10,10))
+# plt.xlim(0, 100)
+# plt.ylim(100, 0)
+# plt.plot(np.transpose(path)[1], np.transpose(path)[0])
+# plt.show()
+
+
+
 # 3=quadratic 4=cubic
 order = 4
 
@@ -321,7 +350,7 @@ def get_ts(path):
     theta = np.zeros((len(path)-1, 1))
 
     for i in range(1, len(path)-1):
-        theta[i] = min(np.math.pi - np.math.acos( (t[i-1]**2 + t[i]**2 - t2[i-1]) / (2 * t[i] * t[i-1]) ), np.math.pi/2)
+        theta[i] = min(np.math.pi - np.math.acos( np.clip((t[i-1]**2 + t[i]**2 - t2[i-1]) / (2 * t[i] * t[i-1]), -1.0, 1.0) ), np.math.pi/2)
 
 
     h = np.zeros((len(path)-1, 1))
@@ -369,8 +398,9 @@ def fit_curve(path):
     itera = 0
     resid_old = 0
     resid_new = (bt @ p) - path
+    counter = 0
 
-    for _ in range(2):
+    while np.linalg.norm(resid_new - resid_old, ord=2) / max(1, np.linalg.norm(resid_new, ord=2)) > 1e-01:
         deriv = (order-1) * (t[:, :-1] @ M(order-1)) @ (p[1:, :] - p[:-1, :])
         new_t = t[:, 1] - ((deriv[:, 0] * resid_new[:, 0]) + (deriv[:, 1] * resid_new[:, 1])) \
                 / (deriv[:, 0]**2 + deriv[:, 1]**2)
@@ -383,8 +413,10 @@ def fit_curve(path):
         p = np.linalg.pinv(bt) @ path
         resid_old = resid_new
         resid_new = (bt @ p) - path
-        # break
-    
+        counter += 1
+
+
+    # print('Counter: ', counter)
 
     # print('new p ', p)
 
@@ -412,12 +444,13 @@ def fit_curve(path):
     # plt.figure(figsize=(10,10))
     # plt.xlim(0, 100)
     # plt.ylim(100, 0)
-    # plt.plot(np.transpose(opath)[1], np.transpose(opath)[0])
+    # plt.plot(np.transpose(path)[1], np.transpose(path)[0])
     # # plt.plot(path[0, 1], path[0, 0], 'ro')
     # # plt.plot(opath[-1, 1], opath[-1, 0], 'go')
     # plt.plot(curve[1], curve[0], 'r-')
     # plt.show()
     # curve = np.transpose(curve)
+
 
 
 
@@ -432,7 +465,7 @@ def fit_curve(path):
         return ((a - b)**2).mean()
 
     loss = mse(path, curve)
-    print('-loss-\n', loss)
+    # print('-loss-\n', loss)
 
 
     # __L = (-2 * np.transpose(t)) @ (path - (t @ M(order) @ C))
@@ -442,113 +475,211 @@ def fit_curve(path):
 
 
 
-# c = fit_curve(path[:30])
+# path = paths[0][50:200]
+# c, l, p = fit_curve(path)
 # c = fit_curve(path[29:39])
 # c = fit_curve(path[38:49])
 # c = fit_curve(path[0:38])
 
-
 # plt.figure(figsize=(10,10))
-# plt.xlim(0, 100)
-# plt.ylim(100, 0)
-# plt.plot(np.transpose(path)[1], np.transpose(path)[0])
+# plt.xlim(0, 2000)
+# plt.ylim(2000, 0)
+# plt.plot(np.transpose(path)[1], np.transpose(path)[0], 'g-')
+# plt.plot(np.transpose(c)[1], np.transpose(c)[0], 'r-')
 # plt.show()
-
-
-max_error = 0.0905
-
-start = 0
-end = len(path)
-min_points = 3
-
-new_path = []
-
-while len(path) - start > min_points:
-    curve, loss, control_points = fit_curve(path[start:end])
-
-    if loss < max_error:
-        print('start: ', start, 'end: ', end-1)
-        curve = np.transpose(curve)
-
-        plt.figure(figsize=(10,10))
-        plt.xlim(0, 100)
-        plt.ylim(100, 0)
-        plt.plot(np.transpose(opath)[1], np.transpose(opath)[0])
-        plt.plot(opath[start, 1], opath[start, 0], 'ro', markersize=2)
-        plt.plot(opath[-1, 1], opath[-1, 0], 'go')
-        plt.plot(curve[1], curve[0])
-        plt.show()
-
-        new_path.append(control_points)
-        # print('control_points', control_points)
-
-        start = end - 1
-        end = len(path)
-
-        continue
-
-    if end - start <= min_points:
-        print('start: ', end, 'end: ', end)
-        
-        start = end - 1
-        end = len(path)
-
-        new_path.append(control_points)
-        
-        continue
-
-    end -= 1
-
-print('new_path')
-print(new_path)
-
-if start != len(path) - 1:
-    print('remaining:', path[start:])
-# if start != len(path)-1 add remaining points as line path
-
-new_path = np.array(new_path)
-
-for i in range(len(new_path)-1):
-    # Join start and end point in the middle
-    end = new_path[i, -1]
-    start = new_path[i+1, 0]
-    # Find middle point
-    join = end + ((start - end) / 2)
-    # Update end point of this curve
-    new_path[i, -1] = join
-    # Update start point of the next curve
-    new_path[i+1, 0] = join
-
-#     # k = dist(new_path[i+1, 1], join) / dist(join, new_path[i, -2])
-#     # new_cp = join + k * (join - new_path[i, -2])
-#     # new_path[i+1, 1] = new_cp
-#     # print('k', k)
-
-#     # last_control_point = new_path[i+1, 1]
-#     # a = math.atan2(last_control_point[0] - join[0], last_control_point[1] - join[1])
-#     # d = dist(new_path[i, -2], join)
-#     # new_control_point_x = join[1] + d * math.cos(a)
-#     # new_control_point_y = join[0] + d * math.sin(a)
-
-#     # new_path[i, -2] = (new_control_point_y, new_control_point_x)
-
-
-# # print(new_path)
+# print('loss', l)
 
 
 plt.figure(figsize=(10,10))
-for cps in new_path:
-    curve = bezier(cps, order=order)
-    curve = np.transpose(curve)
 
-    plt.xlim(0, 100)
-    plt.ylim(100, 0)
-    # plt.plot(np.transpose(opath)[1], np.transpose(opath)[0], 'b-')
-    # plt.plot(opath[start, 1], opath[start, 0], 'ro', markersize=2)
-    # plt.plot(opath[-1, 1], opath[-1, 0], 'go')
-    plt.plot(curve[1], curve[0], 'r-')
-    # plt.plot([cps[-1, 1], cps[-2, 1]], [cps[-1, 0], cps[-2, 0]], 'b-')
-    # plt.plot([cps[1, 1], cps[0, 1]], [cps[1, 0], cps[0, 0]], 'r-')
+for path in paths:
+    max_error = 0.2
+    min_points = 10
+
+    start = 0
+    # end = len(path)
+    end = start + min_points
+
+    new_path = []
+
+    # c = fit_curve(path[39:77])
+    # c = fit_curve(path[39:48])
+
+    # ---- BACKWARDS METHOD -------
+    # while len(path) - start > min_points:
+    #     curve, loss, control_points = fit_curve(path[start:end])
+
+    #     if loss < max_error:
+    #         # print('start: ', start, 'end: ', end-1, 'loss', loss)
+    #         # curve = np.transpose(curve)
+
+    #         # plt.figure(figsize=(10,10))
+    #         # plt.xlim(0, 2000)
+    #         # plt.ylim(2000, 0)
+    #         # # plt.plot(np.transpose(opath)[1], np.transpose(opath)[0])
+    #         # # plt.plot(opath[start, 1], opath[start, 0], 'ro', markersize=2)
+    #         # # plt.plot(opath[-1, 1], opath[-1, 0], 'go')
+    #         # plt.plot(curve[1], curve[0])
+    #         # plt.show()
+
+    #         new_path.append(control_points)
+    #         # print('control_points', control_points)
+
+    #         start = end - 1
+    #         end = len(path)
+
+    #         continue
+
+    #     if end - start <= min_points:
+    #         # print('start: ', end, 'end: ', end, 'loss', loss)
+            
+    #         start = end - 1
+    #         end = len(path)
+
+    #         new_path.append(control_points)
+            
+    #         continue
+
+    #     end -= 1
+
+    # ------ FORWARD METHOD ------
+    # prev_loss = None
+    # while len(path) - start >= min_points:
+    #     curve, loss, control_points = fit_curve(path[start:end])
+
+    #     # if (prev_loss is not None):
+    #         # print(end, abs(loss - prev_loss), ' | ', loss)
+
+    #     if loss < 0.099 and (prev_loss is not None) and abs(loss - prev_loss) < 0.009:
+    #         # curve = np.transpose(curve)
+    #         # plt.figure(figsize=(10,10))
+    #         # plt.xlim(0, 100)
+    #         # plt.ylim(100, 0)
+    #         # plt.plot(np.transpose(opath)[1], np.transpose(opath)[0])
+    #         # # plt.plot(opath[start, 1], opath[start, 0], 'ro', markersize=2)
+    #         # # plt.plot(opath[-1, 1], opath[-1, 0], 'go')
+    #         # plt.plot(curve[1], curve[0])
+    #         # plt.show()
+            
+    #         new_path.append(control_points)
+
+    #         start = end - 1
+    #         end = len(path)
+    #         prev_loss = None
+
+    #         continue
+
+    #     if end - start <= min_points:
+    #         # break
+    #         start = end - 1
+    #         end = len(path)
+    #         prev_loss = None
+    #         new_path.append(control_points)
+            
+    #         continue
+
+
+    #     end -= 1
+    #     prev_loss = loss
+
+
+    # ------ REAL FORWARD METHOD ------
+    prev_loss = None
+    while len(path) - start >= min_points:
+        curve, loss, control_points = fit_curve(path[start:end])
+
+        # if (prev_loss is not None):
+            # print(end, abs(loss - prev_loss), ' | ', loss)
+
+        # TODO: take the previous control points if loss went over max error
+        if loss > max_error:
+            # curve = np.transpose(curve)
+            # plt.figure(figsize=(10,10))
+            # plt.xlim(0, 100)
+            # plt.ylim(100, 0)
+            # plt.plot(np.transpose(opath)[1], np.transpose(opath)[0])
+            # # plt.plot(opath[start, 1], opath[start, 0], 'ro', markersize=2)
+            # # plt.plot(opath[-1, 1], opath[-1, 0], 'go')
+            # plt.plot(curve[1], curve[0])
+            # plt.show()
+            
+            new_path.append(control_points)
+
+            start = end - 1
+            end = start + min_points
+            prev_loss = None
+
+            continue
+
+        if end >= len(path):
+            start = end - 1
+            end = start + min_points
+            prev_loss = None
+            # new_path.append(control_points)
+            
+            continue
+
+
+        end += 1
+        prev_loss
+
+
+
+    # print('new_path')
+    # print(new_path)
+
+    # if start != len(path) - 1:
+        # print('remaining:', path[start:])
+    # TODO: if start != len(path)-1 add remaining points as line path
+
+
+    new_path = np.array(new_path)
+    for i in range(len(new_path)-1):
+        # Join start and end point in the middle
+        end = new_path[i, -1]
+        start = new_path[i+1, 0]
+        # Find middle point
+        join = end + ((start - end) / 2)
+        # Update end point of this curve
+        new_path[i, -1] = join
+        # Update start point of the next curve
+        new_path[i+1, 0] = join
+
+    # #     # k = dist(new_path[i+1, 1], join) / dist(join, new_path[i, -2])
+    # #     # new_cp = join + k * (join - new_path[i, -2])
+    # #     # new_path[i+1, 1] = new_cp
+    # #     # print('k', k)
+
+    # #     # last_control_point = new_path[i+1, 1]
+    # #     # a = math.atan2(last_control_point[0] - join[0], last_control_point[1] - join[1])
+    # #     # d = dist(new_path[i, -2], join)
+    # #     # new_control_point_x = join[1] + d * math.cos(a)
+    # #     # new_control_point_y = join[0] + d * math.sin(a)
+
+    # #     # new_path[i, -2] = (new_control_point_y, new_control_point_x)
+
+
+    # # # print(new_path)
+
+
+    # plt.figure(figsize=(10,10))
+
+    for cps in new_path:
+        curve = bezier(cps, order=order)
+        curve = np.transpose(curve)
+
+        # plt.xlim(0, 2000)
+        # plt.ylim(2000, 0)
+        # plt.plot(np.transpose(path)[1], np.transpose(path)[0], 'g-')
+        # plt.plot(opath[start, 1], opath[start, 0], 'ro', markersize=2)
+        # plt.plot(opath[-1, 1], opath[-1, 0], 'go')
+        plt.plot(curve[1], curve[0], linewidth=1)
+        # plt.plot([cps[-1, 1], cps[-2, 1]], [cps[-1, 0], cps[-2, 0]], 'b-')
+        # plt.plot([cps[1, 1], cps[0, 1]], [cps[1, 0], cps[0, 0]], 'r-')
+
+
+plt.xlim(0, 2000)
+plt.ylim(2000, 0)
 plt.show()
 
 

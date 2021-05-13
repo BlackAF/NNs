@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 svg_begin = '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">\n'
 rnd = lambda: np.random.randint(0, 101)
 # path_str = f'\t<path fill="none" stroke="#ffffff" d="M {rnd()},{rnd()} Q {rnd()},{rnd()},{rnd()},{rnd()}" />\n'
-path_str = '<path fill="none" stroke="#ffffff" d="M 20,50 Q 40,13,54,44" />'
+path_str = '<path fill="none" stroke="#ffffff" d="M 20,50 Q 40,13, 54,44" />'
 svg_end = '</svg>\n'
 
 svg = ''.join([svg_begin, path_str, svg_end])
@@ -27,20 +27,22 @@ plt.show()
 
 #%%
 
-curves = fitCurve(img_points, 1)
+curves = fitCurve(img_points, 0.5)
+print(curves)
 
-calc_svg = f'<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">\n'
-for curve in curves:
-    c = list([i.astype(int) for i in curve])
-    color = ','.join(map(str, np.random.randint(0, 256, size=3)))
-    calc_svg += f'\t<path fill="none" stroke="rgb({color})" d="M {c[0][0]},{c[0][1]} C {c[1][0]},{c[1][1]} {c[2][0]},{c[2][1]} {c[3][0]},{c[3][1]}" />'
-calc_svg += '</svg>'
+# calc_svg = f'<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">\n'
+# for curve in curves:
+#     c = list([i.astype(int) for i in curve])
+#     color = ','.join(map(str, np.random.randint(0, 256, size=3)))
+#     calc_svg += f'\t<path fill="none" stroke="rgb({color})" d="M {c[0][0]},{c[0][1]} C {c[1][0]},{c[1][1]} {c[2][0]},{c[2][1]} {c[3][0]},{c[3][1]}" />'
+# calc_svg += '</svg>'
 
-calc_img = cairosvg.svg2png(calc_svg.encode('utf-8'))
-calc_img = tf.io.decode_jpeg(calc_img)
+# calc_img = cairosvg.svg2png(calc_svg.encode('utf-8'))
+# calc_img = tf.io.decode_jpeg(calc_img)
 
-plt.imshow(calc_img)
-plt.show()
+# plt.imshow(calc_img)
+# plt.show()
+
 
 
 

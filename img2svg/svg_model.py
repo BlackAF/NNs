@@ -1,5 +1,7 @@
 #%%
 import tensorflow as tf
+import matplotlib.pyplot as plt
+
 import cairosvg
 import cairocffi
 
@@ -16,23 +18,39 @@ class IMG2SVG(Model):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.svg_model = self.load_svg_model()
+        self.total = tf.Variable(1/99.0)
 
     def load_svg_model(self):
         svg_model = Sequential()
 
-        svg_model.add(Input((10, 10, 1)))
+        svg_model.add(Input((13,)))
         
-        svg_model.add(Conv2D(128, 3, activation='relu', padding='same'))
-        svg_model.add(Conv2D(128, 3, activation='relu', padding='same'))
-        svg_model.add(MaxPooling2D(strides=2))
+        ki = tf.keras.initializers. GlorotUniform()
 
-        svg_model.add(Conv2D(64, 3, activation='relu', padding='same'))
-        svg_model.add(Conv2D(64, 3, activation='relu', padding='same'))
-        svg_model.add(MaxPooling2D(strides=2))
+        # svg_model.add(Conv2D(10, 3, activation='relu', kernel_initializer=ki, padding='same'))
+        # svg_model.add(tf.keras.layers.PReLU())
+        # svg_model.add(Conv2D(256, 3, activation='relu', padding='same'))
+        # svg_model.add(Conv2D(256, 3, activation='relu', padding='same'))
+        # svg_model.add(MaxPooling2D(strides=2))
 
-        svg_model.add(GlobalAveragePooling2D())
-        svg_model.add(Dense(32, activation='relu'))
-        svg_model.add(Dense(4, activation='sigmoid'))
+        # svg_model.add(Conv2D(10, 3, activation='relu', kernel_initializer=ki, padding='same'))
+        # svg_model.add(tf.keras.layers.PReLU())
+        # svg_model.add(Conv2D(128, 3, activation='relu', padding='same'))
+        # svg_model.add(Conv2D(128, 3, activation='relu', padding='same'))
+        # svg_model.add(MaxPooling2D(strides=2))
+
+        # svg_model.add(GlobalAveragePooling2D())
+        # svg_model.add(Dense(10, activation='relu', kernel_initializer=ki))
+        # svg_model.add(tf.keras.layers.PReLU())
+        # svg_model.add(Dense(256, activation='relu'))
+        # svg_model.add(Dense(256, activation='relu'))
+        
+        svg_model.add(Dense(10, activation='relu', kernel_initializer=ki))
+        # svg_model.add(Dense(64, activation='relu', kernel_initializer=ki))
+        # svg_model.add(Dense(512, activation='relu'))
+        # svg_model.add(Dense(512, activation='relu'))
+        
+        svg_model.add(Dense(6, activation='sigmoid', kernel_initializer=ki))
         svg_model.add(Reshape((-1, 2)))
 
         svg_model.compile()
@@ -70,18 +88,36 @@ class IMG2SVG(Model):
 
     @tf.function
     def train_step(self, data):
-        width = data.shape[2]
-        height = data.shape[1]
+        width = 10#data.shape[2]
+        height = 10#data.shape[1]
         batch_size = data.shape[0]
 
-        # This will returns the coordinates of each pixel that isn't 0
-        # in this format [(batch_index, row, col),]
-        data_points = tf.where(data[:, :, :, 0])
-        xy_coords = data_points[:, 1:]
-        batch_row_ids = data_points[:, 0]
-        # Group the above result by batch: [batch, number_of_coords, (row,col)]
-        data_points = tf.RaggedTensor.from_value_rowids(xy_coords, batch_row_ids, nrows=batch_size)
-        data_points = data_points.to_tensor()
+        data_points = data
+
+        # # This will returns the coordinates of each pixel that isn't 0
+        # # in this format [(batch_index, row, col),]
+        # data_points = tf.where(data[:, :, :, 0])
+        # xy_coords = data_points[:, 1:]
+        # batch_row_ids = data_points[:, 0]
+        # # Group the above result by batch: [batch, number_of_coords, (row,col)]
+        # data_points = tf.RaggedTensor.from_value_rowids(xy_coords, batch_row_ids, nrows=batch_size)
+        # data_points = data_points.to_tensor(-1)
+
+        # data_points = tf.reverse(data_points, axis=[-1])
+
+        # pp = data_points[:, :, 0] * width + data_points[:, :, 1]
+        # pp = tf.argsort(pp, axis=1)
+
+        # data_points = tf.gather(data_points, pp, batch_dims=1)
+        # data_points = tf.cast(data_points, dtype=tf.float32)
+
+        # data_points = data_points[:, :, 0] * width + data_points[:, :, 1]
+        # data_points /= 99.
+
+        # tf.print('data points\n', dp, summarize=-1)
+        # tf.print('data points\n', data_points, summarize=-1)
+
+        # tf.print('data points\n', tf.reverse(data_points, axis=-1), summarize=-1)
         # data_points /= [height, width]
         # dp = data_points / [height, width]
         # tf.print('DP\n', data_points)
@@ -93,52 +129,127 @@ class IMG2SVG(Model):
         # # This will 0 pad to the max length
         # data_points = data_points.to_tensor()
         # # tf.print('data_points\n', tf.round(data_points*99.))
+        # tf.print('data points\n', data_points, summarize=-1)
+
 
         with tf.GradientTape() as tape:
             svg = self.svg_model(data)
             # tf.print(svg, summarize=-1)
             # tf.print('\nsvg\n', svg)
             svg = tf.expand_dims(svg, axis=-1) # [batch, n_control_points, 2=[row,col], 1]
-            p1, p2 = tf.unstack(svg, axis=1) # [ p1=[[batch, 2, 1], batch2..], p2=[[batch1, 2, 1], batch2..], p3.. ]
+            p1, p2, p3 = tf.unstack(svg, axis=1) # [ p1=[[batch, 2, 1], batch2..], p2=[[batch1, 2, 1], batch2..], p3.. ]
+            # tf.print('cps\n', tf.squeeze(svg[0]), summarize=-1)
+            # svg = tf.constant([
+                # [[[1.], [1.]], [[1.], [1.]], [[1.], [1.]]]
+            # ])
+            tf.print('cps\n', tf.squeeze(tf.round(svg[0]*10)), summarize=-1)
 
-
-            t = tf.linspace(0., 1., num=5)
-            points = (1 - t) * p1 + t * p2 # [batch, 2=[rows,cols], n_points]
+            smoothness = 13
+            t = tf.linspace(0., 1., num=smoothness)
+            points = ((1 - t)**2) * p1 + 2 * (1 - t) * t * p2 + (t**2) * p3
+            # points = (1 - t) * p1 + t * p2 # [batch, 2=[rows,cols], n_points]
 
             #--- working points method ---#
             # Go from [rows, cols] to [(x, y),]
             # TODO: transpose is costly, maybe keep it in [rows,cols] and format data instead
             points = tf.transpose(points, perm=[0, 2, 1]) # [batch, n_points, 2=[row,col]]
             # Scale points
-            points *= [height, width]
+            points *= [height-1, width-1]
             x_rounded_NOT_differentiable = tf.round(points)
             # tf.print('bef points\n', points, summarize=-1)
             points = (points - (tf.stop_gradient(points) - x_rounded_NOT_differentiable))
             # tf.print('aft points\n', points, summarize=-1)
             #--- working points method ---#
 
-                        
-            pos = points[:, :, 0] * width + points[:, :, 1]
-            pos = tf.argsort(pos, axis=1)
+            # points = points[0]
+            points = points[:, :, 0] * tf.cast(width, dtype=tf.float32) + points[:, :, 1]
+            # points = points * self.total
+            # tf.print('pos\n', pos, summarize=-1)
 
-            points = tf.gather(points, pos, batch_dims=1)
+            # pos = tf.argsort(pos, axis=0)
 
-            d = points[:, 1:] - points[:, :-1]
-            d = tf.math.abs(d)
-            d = tf.math.reduce_sum(d, axis=2)
-            d = tf.pad(d, paddings=[[0, 0], [1, 0]], constant_values=1.)
+            # points = tf.gather(points, pos)
 
-            w = tf.where(d)
-            w = tf.RaggedTensor.from_value_rowids(w[:, 1], w[:, 0])
+            # d = points[1:] - points[:-1]
+            # d = tf.math.abs(d)
 
-            points = tf.RaggedTensor.from_tensor(points)
-            points = tf.gather(points, w, axis=1, batch_dims=1)
-            points = points.to_tensor(-1)
+            # d = tf.math.reduce_sum(d, axis=1)
 
-            pad = 5 - tf.shape(points)[1]
-            points = tf.pad(points, paddings=[[0, 0], [0, pad], [0, 0]], constant_values=-1)
+            # d = tf.minimum(d, 1.)
+            # d = tf.pad(d, [[1, 0]], constant_values=1.)
+            # d = tf.expand_dims(d, axis=-1)
 
+            # points = points * d
+
+            # w = tf.where(d) + 1
+            # w = tf.pad(w, [[1, 0], [0, 0]])
+
+            # ROUNDING AND SORTING IS FINE, IT STILL LEARNS,
+            # IT STOPS LEARNING WHEN ADDING THE REMOVAL OF DUPLICATES HERE
+            
+            # points = tf.gather_nd(points, w)
+
+            # pad = smoothness - tf.shape(points)[0]
+            # points = tf.pad(points, paddings=[[0, pad], [0, 0]], constant_values=-1)
+            # tf.print('x', x, summarize=-1)
+
+            # c = tf.sparse.SparseTensor(tf.cast(points[0], tf.int64), tf.range(5), dense_shape=[height,width])
+            # c = tf.sparse.reorder(c)
+            # # tf.print(c, summarize=-1)
+
+            # points = tf.gather_nd(points[0], tf.expand_dims(c.values, axis=-1))
+            # points = tf.expand_dims(points, axis=0)
+            data_points *= 99.
+            data_points = tf.round(data_points)
+            tf.print('data points\n', data_points, summarize=-1)
             tf.print('aft points\n', points, summarize=-1)
+
+            # ---- BATCH ---- #
+
+            # # Convert coordinates [x, y] to 1d position indices [pos]
+            # pos = points[:, :, 0] * width + points[:, :, 1]
+            # pos = tf.argsort(pos, axis=1)
+
+            # # Sort the array so we can remove duplicates
+            # points = tf.gather(points, pos, batch_dims=1)
+
+            # # Subtract the previous coor with the current one
+            # # values where x and y is 0 indicate that it is a duplicate
+            # d = points[:, 1:] - points[:, :-1]
+            # # Get rid of negative so we can sum x and y to know if it's a duplicate
+            # d = tf.math.abs(d)
+            # # After summing x and y we know it's a duplicate if the value is 0
+            # d = tf.math.reduce_sum(d, axis=2)
+            # # The first value can never be a duplicate so just add a [1., 1.] at position 0
+            # d = tf.pad(d, paddings=[[0, 0], [1, 0]], constant_values=1.)
+
+            # # Get all positions that are not duplicates by selecting indices where the value isn't 0
+            # w = tf.where(d)
+            # # Batches can have a different number of elements after removing duplicates,
+            # # so we need a ragged tensor
+            # w = tf.RaggedTensor.from_value_rowids(w[:, 1], w[:, 0])
+
+            # points = tf.RaggedTensor.from_tensor(points)
+            # # Removes duplicates from 'points'
+            # points = tf.gather(points, w, axis=1, batch_dims=1)
+            # # Pad batches with the value -1 in order to have the same dimensions
+            # points = points.to_tensor(-1)
+
+            # # The number of points calculated are the ground truth points most likely
+            # # have different lengths so get the length of the largest one
+            # max_len = tf.maximum(tf.shape(data_points)[1], tf.shape(points)[1])
+   
+            # # Pad the points in order to have equal dimensions when we calculate the loss
+            # pad = max_len - tf.shape(points)[1]
+            # points = tf.pad(points, paddings=[[0, 0], [0, pad], [0, 0]], constant_values=-1)
+            # pad = max_len - tf.shape(data_points)[1]
+            # data_points = tf.pad(data_points, paddings=[[0, 0], [0, pad], [0, 0]], constant_values=-1)
+
+            # # tf.print('aft points\n', data_points, summarize=-1)
+            # tf.print('aft points\n', points, summarize=-1)
+
+
+            # ----- BATCH ----- #
 
             # a = tf.gather_nd(a, tf.expand_dims(c.values, axis=-1))
 
@@ -257,7 +368,9 @@ class IMG2SVG(Model):
         
         # tf.print([var.name for var in tape.watched_variables()])
         gradients = tape.gradient(loss, self.svg_model.trainable_variables)
-        # tf.print('grads\n', gradients[10], summarize=-1)
+        # tf.print('grads\n', gradients, summarize=-1)
+        tf.print('gradient norm: ', tf.linalg.global_norm(gradients))
+        gradients, _ = tf.clip_by_global_norm(gradients, 5.0)
         self.optimizer.apply_gradients(zip(gradients, self.svg_model.trainable_variables))
 
         return { 'loss': loss }
@@ -265,25 +378,102 @@ class IMG2SVG(Model):
 # tm = TrainManager()
 
 img2svg = IMG2SVG()
-img2svg.compile(Adam(lr=C.INIT_LR), loss='mse')
+img2svg.compile(tf.keras.optimizers.SGD(lr=C.INIT_LR), loss='mae')
 
+# inp = tf.constant([
+#        [0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
+#        [0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
+#        [0., 1., 0., 0., 0., 0., 0., 0., 0., 0.],
+#        [0., 1., 0., 0., 0., 0., 0., 0., 0., 0.],
+#        [0., 1., 0., 0., 0., 0., 0., 0., 0., 0.],
+#        [0., 1., 0., 0., 0., 0., 0., 0., 0., 0.],
+#        [0., 1., 0., 0., 0., 0., 0., 0., 0., 0.],
+#        [0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
+#        [0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
+#        [0., 0., 0., 0., 0., 0., 0., 0., 0., 0.]])
 inp = tf.constant([
-       [0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
-       [0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
-       [0., 1., 0., 0., 0., 0., 0., 0., 0., 0.],
-       [0., 1., 0., 0., 0., 0., 0., 0., 0., 0.],
-       [0., 1., 0., 0., 0., 0., 0., 0., 0., 0.],
-       [0., 1., 0., 0., 0., 0., 0., 0., 0., 0.],
-       [0., 1., 0., 0., 0., 0., 0., 0., 0., 0.],
-       [0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
-       [0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
-       [0., 0., 0., 0., 0., 0., 0., 0., 0., 0.]])
+    [0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
+    [0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
+    [0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
+    [0., 0., 1., 0., 0., 0., 0., 0., 1., 0.],
+    [0., 0., 1., 1., 0., 0., 0., 1., 1., 0.],
+    [0., 0., 0., 1., 1., 0., 1., 1., 0., 0.],
+    [0., 0., 0., 0., 1., 1., 1., 0., 0., 0.],
+    [0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
+    [0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
+    [0., 0., 0., 0., 0., 0., 0., 0., 0., 0.]
+])
+# inp = tf.constant([
+#     [0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
+#     [0., 0., 0., 0., 0., 0., 1., 0., 0., 0.],
+#     [0., 0., 0., 0., 0., 1., 1., 0., 0., 0.],
+#     [0., 0., 0., 0., 1., 1., 0., 0., 0., 0.],
+#     [0., 0., 0., 0., 1., 0., 0., 0., 0., 0.],
+#     [0., 0., 0., 1., 0., 0., 0., 0., 0., 0.],
+#     [0., 0., 1., 1., 0., 0., 0., 0., 0., 0.],
+#     [0., 1., 1., 0., 0., 0., 0., 0., 0., 0.],
+#     [0., 1., 0., 0., 0., 0., 0., 0., 0., 0.],
+#     [0., 0., 0., 0., 0., 0., 0., 0., 0., 0.]
+# ])
 inp = inp[tf.newaxis, :, :, tf.newaxis]
+# This will returns the coordinates of each pixel that isn't 0
+# in this format [(batch_index, row, col),]
+inp = tf.where(inp[:, :, :, 0])
+xy_coords = inp[:, 1:]
+batch_row_ids = inp[:, 0]
+# Group the above result by batch: [batch, number_of_coords, (row,col)]
+inp = tf.RaggedTensor.from_value_rowids(xy_coords, batch_row_ids, nrows=1)
+inp = inp.to_tensor(-1)
+
+inp = tf.reverse(inp, axis=[-1])
+
+width = 10
+pp = inp[:, :, 0] * width + inp[:, :, 1]
+pp = tf.argsort(pp, axis=1)
+
+inp = tf.gather(inp, pp, batch_dims=1)
+inp = tf.cast(inp, dtype=tf.float32)
+
+inp = inp[:, :, 0] * width + inp[:, :, 1]
+inp /= 99.
+
 x = Dataset.from_tensor_slices(inp)
 # x = Dataset.from_tensor_slices(tf.ones((1,10,10,1)))
 x = x.batch(1)
 
-img2svg.fit(x, epochs=50)
+hist = img2svg.fit(x, epochs=40)
+
+wght = img2svg.svg_model.get_weights()
+
+plt.plot(hist.history['loss'])
+
+#%%
+class C:
+    INIT_LR = 0.008
+    WIDTH = 10
+    HEIGHT = 10
+
+#%%
+for i,l in enumerate(img2svg.svg_model.layers):
+    print(i,l.name)
+    if len(l.weights):
+        plt.hist(l.weights[0].numpy().flatten())
+        plt.show()
+
+
+
+
+#%%
+img2svg.svg_model.set_weights(wght)
+img2svg.optimizer.lr = 0.00009
+
+hist = img2svg.fit(x, epochs=25)
+
+plt.plot(hist.history['loss'])
+
+
+#%%
+img2svg.optimizer.lr
 
 
 #%%
@@ -292,18 +482,13 @@ a = img2svg.svg_model(inp)[0]
 print(tf.round(a*10))
 a = tf.expand_dims(a, axis=-1)
 
-t = tf.linspace(0., 1., num=5)
+t = tf.linspace(0., 1., num=12)
+# points = ((1 - t)**2) * a[0] + 2 * (1 - t) * t * a[1] + (t**2) * a[2]
 points = (1 - t) * a[0] + t * a[1]
 points = tf.transpose(points)
 
 # print(points)
 print(tf.round(points*10))
-
-#%%
-class C:
-    INIT_LR = 1e-03
-    WIDTH = 10
-    HEIGHT = 10
 
 #%%
 
@@ -558,7 +743,7 @@ def log10(x):
 
 #%%
 
-# ---- UNIQUE 1D ----
+# ---- UNIQUE 1D Removal ----
 
 a = tf.constant([2., 7., 4., 7., 2.])
 
@@ -582,6 +767,32 @@ print()
 print(w)
 
 a = tf.gather_nd(a, w)
+
+print()
+print(a)
+
+#%%
+
+# ---- UNIQUE 1D / To Zeros ----
+
+a = tf.constant([2., 7., 4., 7., 2.])
+
+print()
+print(a)
+
+a = tf.sort(a, axis=0)
+
+print()
+print(a)
+
+d = a[1:] - a[:-1]
+d = tf.minimum(d, 1.)
+d = tf.pad(d, [[1, 0]], constant_values=1.)
+
+print()
+print(d)
+
+a = a * d
 
 print()
 print(a)
