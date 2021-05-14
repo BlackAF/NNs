@@ -6,6 +6,8 @@ import tensorflow as tf
 import pathlib
 import csv
 import matplotlib.pyplot as plt
+import h5py
+from tqdm import tqdm
 
 #%%
 class SVGDatasetGenerator:
@@ -13,37 +15,31 @@ class SVGDatasetGenerator:
     LINE_CMD = -2
     CURVE_CMD = -3
 
-    def __init__(self, log_dir=None):
+    def __init__(self, log_dir=None, size=10):
         self.log_dir = log_dir
+        self.size = size
 
         if log_dir is not None:
-            pathlib.Path(log_dir, 'svgs').mkdir(parents=True, exist_ok=True)
-            pathlib.Path(log_dir, 'imgs').mkdir(parents=True, exist_ok=True)
-    
+            pathlib.Path(log_dir).mkdir(parents=True, exist_ok=True)
+
     def generate_origin_anchor(self):
-        anchor = np.random.randint(0, 101, size=3)
-        # Set the first value to represent the command type
-        anchor[0] = self.ORIGIN_CMD
+        anchor = np.random.randint(0, self.size+1, size=2)
         
-        anchor_str = f'M{anchor[1]},{anchor[2]}'
+        anchor_str = f'M{anchor[0]},{anchor[1]}'
 
         return anchor, anchor_str
     
     def generate_line_anchor(self):
-        anchor = np.random.randint(0, 101, size=3)
-        # Set the first value to represent the command type
-        anchor[0] = self.LINE_CMD    
+        anchor = np.random.randint(0, self.size+1, size=2)
         
-        anchor_str = f'L{anchor[1]},{anchor[2]}'
+        anchor_str = f'L{anchor[0]},{anchor[1]}'
         
         return anchor, anchor_str
         
     def generate_curve_anchor(self):
-        anchor = np.random.randint(0, 101, size=7)
-        # Set the first value to represent the command type
-        anchor[0] = self.CURVE_CMD
+        anchor = np.random.randint(0, self.size+1, size=6)
         
-        anchor_str = f'C{anchor[1]},{anchor[2]} {anchor[3]},{anchor[4]} {anchor[5]},{anchor[6]}'
+        anchor_str = f'C{anchor[0]},{anchor[1]} {anchor[2]},{anchor[3]} {anchor[4]},{anchor[5]}'
         
         return anchor, anchor_str
     
@@ -62,7 +58,7 @@ class SVGDatasetGenerator:
         svg = []
         
          # Build opening element
-        svg_begin = '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">\n'
+        svg_begin = f'<svg xmlns="http://www.w3.org/2000/svg" width="{self.size}" height="{self.size}">\n'
         svg.append(svg_begin)
 
         for _ in range(num_paths):
@@ -90,7 +86,7 @@ class SVGDatasetGenerator:
             anchors_str = ' '.join(anchors_str)
 
             # Build the path element
-            path_str = f'\t<path fill="none" stroke="#00ff00" d="{anchors_str}" />\n'
+            path_str = f'\t<path fill="none" stroke="#ffffff" d="{anchors_str}" />\n'
             svg.append(path_str)
             
         # Flatten the anchors into one list
@@ -109,45 +105,41 @@ class SVGDatasetGenerator:
         assert num_paths > 0
         assert num_commands > 1
         
-        name = f'{num_paths}_paths_{num_commands}_commands_'
+        name = f'{num_paths}_paths_{num_commands}_commands_{batch_size}_samples_'
         name = name + ('line_only' if line_only else 'curve_only' if curve_only else 'mixed')
 
-        rows = []
+        samples = []
+        labels = []
 
         # Generate random coordinates
-        for _ in range(batch_size):
-            paths = []
-            svg = []
-            
-            svg, paths = self.generate_svg(num_paths, num_commands, curve_only=curve_only, line_only=line_only)
-            
+        for _ in tqdm(range(batch_size)):
+            svg, anchors = self.generate_svg(num_paths, num_commands, curve_only=curve_only, line_only=line_only)
+            anchors = np.reshape(anchors, (-1, 2))
+            # Make sure we always have 4 control points (pad with -size which will be rescaled to -1)
+            anchors = np.pad(anchors, pad_width=[(0, 4-anchors.shape[0]), (0, 0)], constant_values=-self.size)
+
             timestamp = str(time.time()).replace('.', '')
             file_name = f'{name}-{timestamp}'
 
-            # Write the image to disk
-            self.save_img(svg, file_name)
+            svg_png = cairosvg.svg2png(bytestring=svg.encode('UTF-8'))
+            svg_png = tf.io.decode_png(svg_png, channels=1)
 
-            anchors_scaled = list(paths.flatten() / 100)
-            rows.append([file_name, ','.join(map(str, anchors_scaled))])
-        
-        with open(pathlib.Path(self.log_dir, 'dataset.csv'), 'w') as f:
-            writer = csv.writer(f, delimiter=',', quoting=csv.QUOTE_ALL)
-            writer.writerows(rows)
+            samples.append(svg_png)
+            labels.append(anchors)
 
-    def save_svg(self, svg, file_name):
-        svg_path = pathlib.Path(self.log_dir, 'svgs', f'{file_name}.svg')
-        with open(svg_path, 'w') as f:
-            f.write(svg)
+        # Scale between 0 and 1
+        samples = np.stack(samples) / 255
+        labels = np.stack(labels) / self.size
 
-    def save_img(self, svg, file_name):
-        image_path = str(pathlib.Path(self.log_dir, 'imgs', f'{file_name}.png'))
-        cairosvg.svg2png(bytestring=svg.encode('UTF-8'), write_to=image_path)
+        with h5py.File(os.path.join(self.log_dir, f'{file_name}.hdf5'), 'w') as f:
+            f.create_dataset('x_train', data=samples, dtype=np.float32)
+            f.create_dataset('y_train', data=labels, dtype=np.float32)
 
 #%%
-print('Starting!')
 start_time = time.time()
 
-SVGDatasetGenerator(log_dir='datasets/hmm/train').save(batch_size=1, num_paths=1, num_commands=2)
+for _ in range(10):
+    SVGDatasetGenerator(log_dir='datasets').save(batch_size=5000, num_paths=1, num_commands=2, curve_only=True)
 
 end_time = time.time() - start_time
-print('Done! - Took: ', end_time, 's')
+print('\nDone! - Took: ', end_time, 's')

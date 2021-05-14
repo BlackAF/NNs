@@ -17,6 +17,7 @@ from tensorflow.keras.utils import Progbar
 
 tf.get_logger().setLevel('ERROR')
 tf.config.list_physical_devices('GPU')
+
 #%%
 class SVG:
     class Mode(Enum):
@@ -109,6 +110,20 @@ class SVG:
 
 # plt.rcParams['axes.facecolor'] = 'black'
 # plt.imshow(img, origin='lower')
+
+#%%
+class C:
+    REPLAY_MEMORY_LEN = 50000
+    MIN_REPLAY_MEMORY = 20000
+    BATCH_SIZE = 32
+    DISCOUNT = 0.99
+    START_EPSILON = 1.0
+    END_EPSILON = 0.1
+    EPSILON_DECAY = 0.995
+    UPDATE_TARGET_EVERY = 5
+    EPISODES = 40
+    RENDER = False
+    INIT_LR = 1e-03
 
 #%%
 class Environment:
@@ -345,15 +360,18 @@ tm = TrainManager()
 tm.train()
 
 #%%
-class C:
-    REPLAY_MEMORY_LEN = 50000
-    MIN_REPLAY_MEMORY = 20000
-    BATCH_SIZE = 32
-    DISCOUNT = 0.99
-    START_EPSILON = 1.0
-    END_EPSILON = 0.1
-    EPSILON_DECAY = 0.995
-    UPDATE_TARGET_EVERY = 5
-    EPISODES = 5000
-    RENDER = False
-    INIT_LR = 1e-03
+d = False
+tm.epsilon = 0.8183201210226743
+
+st = tm.env.reset()
+
+while not d:
+    act = tm.get_action(st)
+    new_state, rewa, d = tm.env.step(act)
+    tm.env.render()
+    st = new_state
+#%%
+
+#%%
+# epsilon 0.8183201210226743
+print(tm.epsilon)
